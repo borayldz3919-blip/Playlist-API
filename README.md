@@ -8,7 +8,7 @@ A simple REST API for a music playlist: add, edit, delete, search, sort, filter 
 | | |
 |---|---|
 | **Source code** | https://github.com/borayldz3919-blip/Playlist-API |
-| **Live Swagger UI** | https://YOUR-APP.onrender.com/api-docs |
+| **Live Swagger UI** | https://playlist-api-6zm5.onrender.com/api-docs |
 
 > Render's free tier sleeps when idle, so the first request can take 30–60 seconds.
 
