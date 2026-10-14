@@ -1,63 +1,78 @@
 # Playlist API
 
-SE4458 – Assignment 2 (Group 2: Playlist)
+**SE4458 – Assignment 2 · Group 2 (Playlist)**
 **Author:** Bora Yıldız
 
-A simple REST API for managing a music playlist: add, edit, delete, search, sort, filter by genre, favorite and reorder songs. All data is stored in memory.
+A simple REST API for a music playlist: add, edit, delete, search, sort, filter by genre, favorite and reorder songs. Data is kept in memory. There is no frontend, only the API and its Swagger page.
 
-- **Source code:** https://github.com/<YOUR_USERNAME>/<YOUR_REPO>
-- **Live deployment (Swagger UI):** https://<YOUR_APP>.onrender.com/api-docs
+| | |
+|---|---|
+| **Source code** | https://github.com/borayldz3919-blip/Playlist-API |
+| **Live Swagger UI** | https://YOUR-APP.onrender.com/api-docs |
 
-> The free Render tier sleeps after inactivity, so the first request may take ~30–60 seconds.
+> Render's free tier sleeps when idle, so the first request can take 30–60 seconds.
 
-## Tech stack
-- Node.js + Express 4
-- swagger-ui-express (OpenAPI 3.0 definition in `swagger.js`)
-- In-memory storage (a JavaScript array)
-- Hosted on Render
+## Tech
+Node.js, Express 4, swagger-ui-express (OpenAPI 3), in-memory array as storage, deployed on Render.
 
 ## Run locally
 ```bash
 npm install
-npm start        # http://localhost:3000  (redirects to /api-docs)
-npm test         # integration tests (supertest)
+npm start    # http://localhost:3000 -> redirects to /api-docs
+npm test     # integration tests
 ```
 
 ## Endpoints
 
-| Method | Path | Description |
+| Method | Path | What it does |
 |---|---|---|
-| GET | `/songs` | List songs. Query: `search`, `genre`, `favorite`, `sortBy` (position/title/artist/duration), `order` (asc/desc), `page`, `limit` |
+| GET | `/songs` | List songs with `search`, `genre`, `favorite`, `sortBy`, `order`, `page`, `limit` |
 | GET | `/songs/{id}` | Get one song |
 | POST | `/songs` | Add a song |
-| PUT | `/songs/{id}` | Replace a song (full update) |
+| PUT | `/songs/{id}` | Full update |
 | PATCH | `/songs/{id}` | Partial update |
 | DELETE | `/songs/{id}` | Remove a song |
-| PATCH | `/songs/{id}/favorite` | Toggle favorite (or set it with `{"favorite": true}`) |
-| PATCH | `/songs/{id}/move` | Move a song to a new position (`{"position": 3}`) – replaces drag & drop |
-| GET | `/playlist/summary` | Song count and total duration, e.g. `5 songs • 17 min 26 sec` |
-| GET | `/genres` | Genres with song counts (for the "All Genres" filter) |
+| PATCH | `/songs/{id}/favorite` | Toggle favorite |
+| PATCH | `/songs/{id}/move` | Move to a new position (drag & drop) |
+| GET | `/playlist/summary` | Song count and total duration |
+| GET | `/genres` | Genres with counts |
 | GET | `/health` | Health check |
 
-Example: `GET /songs?search=weeknd&sortBy=duration&order=desc`
+`sortBy` can be `position`, `title`, `artist` or `duration`; `order` is `asc` or `desc`.
+
+**Example**
+
+`GET /songs?search=weeknd&sortBy=duration&order=desc`
+
+```json
+{
+  "data": [
+    { "id": 4, "position": 4, "title": "Save Your Tears", "artist": "The Weeknd",
+      "album": "After Hours", "durationSeconds": 246, "duration": "4:06",
+      "genre": "R&B", "favorite": false }
+  ],
+  "meta": { "total": 2, "page": 1, "limit": 20, "totalPages": 1 }
+}
+```
+
+Errors always look like `{ "error": "...", "details": ["..."] }` with status `400` (invalid input) or `404` (song not found).
 
 ## Design
-- **Mapped from the UI mockup:** search box → `search`; "Sort by: Title (A–Z)" → `sortBy` + `order`; "All Genres" → `genre` + `/genres`; star icon → `/favorite`; pencil icon → `PUT/PATCH`; remove dialog → `DELETE`; "5 songs • 17 min 26 sec" → `/playlist/summary`; drag handle → `/move`.
-- **Playlist order:** the songs array itself is the playlist order. `position` is computed from the array index, so it is always consistent after deletes and moves.
-- **Duration** is stored as `durationSeconds` (integer) and returned also as a formatted string (`3:32`).
-- **Layered responses:** list endpoint returns `{ data, meta }` with pagination info; errors always return `{ error, details[] }`.
-- **Validation** is done by hand (no extra dependency): required fields, positive integer duration, boolean favorite, valid sort/paging params. Invalid input → `400`, unknown id → `404`, malformed JSON → `400`.
-- **Seed data:** 5 songs from the mockup (total duration is exactly 17 min 26 sec).
-- **Extra features:** pagination, favorite filter, reordering, genre list, summary, health check.
+- **Mockup to API:** the search box maps to `search`, the sort and genre dropdowns to `sortBy`/`order`/`genre`, the star to `/favorite`, the pencil to `PUT`/`PATCH`, the remove dialog to `DELETE`, the header "5 songs • 17 min 26 sec" to `/playlist/summary`, and the drag handle to `/move`.
+- **Playlist order** is the order of the array itself. `position` is calculated from the array index, so it stays correct after deletes and moves.
+- **Duration** is stored in seconds and also returned as text (`3:32`).
+- **Validation** is written by hand: title and artist must be non-empty, duration a positive integer, favorite a boolean.
+- **Seed data:** the 5 songs from the mockup, 17 min 26 sec in total.
 
 ## Assumptions
-- No authentication or multi-user support; there is a single global playlist.
-- Data resets to the seed data whenever the server restarts (in-memory requirement).
-- Search matches title, artist and album, case-insensitively, as a substring.
-- Genre is free text; if omitted on creation it becomes `Unknown`.
-- Cover images from the mockup are out of scope (no frontend).
-- New songs are appended to the end of the playlist.
+- One global playlist, no login or users.
+- Data resets to the seed songs when the server restarts.
+- Search is case-insensitive and checks title, artist and album.
+- If genre is not given, it becomes `Unknown`.
+- New songs are added to the end of the playlist.
 
 ## Issues encountered
-<!-- Replace with what you actually ran into. Examples: -->
-- _(Write your own experience here, e.g. Render free tier cold start, choosing PUT vs PATCH, keeping `position` consistent after delete/move, Swagger setup problems, etc.)_
+- **Framework choice:** I considered FastAPI (automatic Swagger) but chose Express because the assignment's example project uses Node. Swagger had to be written manually as an OpenAPI definition.
+- **Drag & drop in a REST API:** there is no direct equivalent, so I added `PATCH /songs/{id}/move` with the target position.
+- **Keeping order consistent:** storing a `position` field broke after deletes, so it is now derived from the array index.
+- **In-memory data on Render:** the free instance restarts and sleeps, which resets the data to the seed songs.
