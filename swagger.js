@@ -59,6 +59,8 @@ module.exports = {
           { name: "search", in: "query", schema: { type: "string" }, description: "Searches title, artist and album (case-insensitive)", example: "weeknd" },
           { name: "genre", in: "query", schema: { type: "string" }, description: "Filter by genre", example: "Pop" },
           { name: "favorite", in: "query", schema: { type: "boolean" }, description: "If true, returns only favorite songs" },
+          { name: "minDuration", in: "query", schema: { type: "integer", minimum: 0 }, description: "Minimum duration in seconds", example: 180 },
+          { name: "maxDuration", in: "query", schema: { type: "integer", minimum: 0 }, description: "Maximum duration in seconds", example: 240 },
           { name: "sortBy", in: "query", schema: { type: "string", enum: ["position", "title", "artist", "duration"], default: "position" } },
           { name: "order", in: "query", schema: { type: "string", enum: ["asc", "desc"], default: "asc" } },
           { name: "page", in: "query", schema: { type: "integer", default: 1, minimum: 1 } },
@@ -92,11 +94,12 @@ module.exports = {
       },
       post: {
         tags: ["Songs"],
-        summary: "Add a new song",
+        summary: "Add a new song (duplicate title + artist is rejected with 409)",
         requestBody: { required: true, content: { "application/json": { schema: songInput(["title", "artist", "durationSeconds"]) } } },
         responses: {
           201: { description: "Created", content: { "application/json": { schema: { $ref: "#/components/schemas/Song" } } } },
           400: errorRes("Validation error"),
+          409: errorRes("A song with the same title and artist already exists"),
         },
       },
     },
@@ -119,6 +122,7 @@ module.exports = {
           200: { description: "Updated", content: { "application/json": { schema: { $ref: "#/components/schemas/Song" } } } },
           400: errorRes("Validation error"),
           404: errorRes("Song not found"),
+          409: errorRes("A song with the same title and artist already exists"),
         },
       },
       patch: {
@@ -130,6 +134,7 @@ module.exports = {
           200: { description: "Updated", content: { "application/json": { schema: { $ref: "#/components/schemas/Song" } } } },
           400: errorRes("Validation error"),
           404: errorRes("Song not found"),
+          409: errorRes("A song with the same title and artist already exists"),
         },
       },
       delete: {
@@ -188,6 +193,37 @@ module.exports = {
                     totalDurationSeconds: { type: "integer", example: 1046 },
                     totalDuration: { type: "string", example: "17 min 26 sec" },
                     favoriteCount: { type: "integer", example: 3 },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/playlist/stats": {
+      get: {
+        tags: ["Playlist"],
+        summary: "Playlist statistics: average, longest and shortest song, top artist, genre distribution",
+        responses: {
+          200: {
+            description: "Statistics",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    songCount: { type: "integer", example: 5 },
+                    totalDurationSeconds: { type: "integer", example: 1046 },
+                    averageDurationSeconds: { type: "integer", example: 209 },
+                    averageDuration: { type: "string", example: "3:29" },
+                    longestSong: { $ref: "#/components/schemas/Song" },
+                    shortestSong: { $ref: "#/components/schemas/Song" },
+                    topArtist: { type: "object", properties: { artist: { type: "string", example: "The Weeknd" }, songCount: { type: "integer", example: 2 } } },
+                    genreDistribution: {
+                      type: "array",
+                      items: { type: "object", properties: { genre: { type: "string", example: "Pop" }, count: { type: "integer", example: 4 }, percentage: { type: "number", example: 80 } } },
+                    },
                   },
                 },
               },
