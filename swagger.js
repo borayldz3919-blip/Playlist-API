@@ -2,7 +2,7 @@ const songSchema = {
   type: "object",
   properties: {
     id: { type: "integer", example: 1 },
-    position: { type: "integer", example: 1, description: "Playlist içindeki sıra (1'den başlar)" },
+    position: { type: "integer", example: 1, description: "Position in the playlist (starts at 1)" },
     title: { type: "string", example: "Blinding Lights" },
     artist: { type: "string", example: "The Weeknd" },
     album: { type: "string", example: "After Hours" },
@@ -43,22 +43,22 @@ module.exports = {
     title: "Playlist API",
     version: "1.0.0",
     description:
-      "SE4458 Assignment 2 – Group 2 (Playlist). Şarkı ekleme, düzenleme, silme, arama, sıralama, tür filtresi, favorileme ve playlist içi sıralama (drag & drop karşılığı) sağlayan REST API. Veriler bellekte tutulur, sunucu yeniden başlayınca başlangıç verisine döner.",
+      "SE4458 Assignment 2 – Group 2 (Playlist). A REST API to add, edit, delete, search, sort, filter by genre, favorite and reorder songs (drag & drop equivalent). Data is stored in memory and resets to the seed songs when the server restarts.",
   },
   tags: [
-    { name: "Songs", description: "Şarkı işlemleri" },
-    { name: "Playlist", description: "Playlist özeti ve türler" },
-    { name: "System", description: "Sağlık kontrolü" },
+    { name: "Songs", description: "Song operations" },
+    { name: "Playlist", description: "Playlist summary and genres" },
+    { name: "System", description: "Health check" },
   ],
   paths: {
     "/songs": {
       get: {
         tags: ["Songs"],
-        summary: "Şarkıları listele (arama, tür filtresi, sıralama, sayfalama)",
+        summary: "List songs (search, genre filter, sorting, pagination)",
         parameters: [
-          { name: "search", in: "query", schema: { type: "string" }, description: "Başlık, sanatçı veya albümde arar (büyük/küçük harf duyarsız)", example: "weeknd" },
-          { name: "genre", in: "query", schema: { type: "string" }, description: "Türe göre filtre", example: "Pop" },
-          { name: "favorite", in: "query", schema: { type: "boolean" }, description: "true ise sadece favoriler" },
+          { name: "search", in: "query", schema: { type: "string" }, description: "Searches title, artist and album (case-insensitive)", example: "weeknd" },
+          { name: "genre", in: "query", schema: { type: "string" }, description: "Filter by genre", example: "Pop" },
+          { name: "favorite", in: "query", schema: { type: "boolean" }, description: "If true, returns only favorite songs" },
           { name: "sortBy", in: "query", schema: { type: "string", enum: ["position", "title", "artist", "duration"], default: "position" } },
           { name: "order", in: "query", schema: { type: "string", enum: ["asc", "desc"], default: "asc" } },
           { name: "page", in: "query", schema: { type: "integer", default: 1, minimum: 1 } },
@@ -66,7 +66,7 @@ module.exports = {
         ],
         responses: {
           200: {
-            description: "Şarkı listesi",
+            description: "List of songs",
             content: {
               "application/json": {
                 schema: {
@@ -87,98 +87,98 @@ module.exports = {
               },
             },
           },
-          400: errorRes("Geçersiz sorgu parametresi"),
+          400: errorRes("Invalid query parameter"),
         },
       },
       post: {
         tags: ["Songs"],
-        summary: "Yeni şarkı ekle",
+        summary: "Add a new song",
         requestBody: { required: true, content: { "application/json": { schema: songInput(["title", "artist", "durationSeconds"]) } } },
         responses: {
-          201: { description: "Oluşturuldu", content: { "application/json": { schema: { $ref: "#/components/schemas/Song" } } } },
-          400: errorRes("Doğrulama hatası"),
+          201: { description: "Created", content: { "application/json": { schema: { $ref: "#/components/schemas/Song" } } } },
+          400: errorRes("Validation error"),
         },
       },
     },
     "/songs/{id}": {
       get: {
         tags: ["Songs"],
-        summary: "Tek şarkıyı getir",
+        summary: "Get a single song",
         parameters: [idParam],
         responses: {
-          200: { description: "Şarkı", content: { "application/json": { schema: { $ref: "#/components/schemas/Song" } } } },
-          404: errorRes("Şarkı bulunamadı"),
+          200: { description: "Song", content: { "application/json": { schema: { $ref: "#/components/schemas/Song" } } } },
+          404: errorRes("Song not found"),
         },
       },
       put: {
         tags: ["Songs"],
-        summary: "Şarkıyı tamamen güncelle (title, artist, durationSeconds zorunlu)",
+        summary: "Replace a song (title, artist, durationSeconds are required)",
         parameters: [idParam],
         requestBody: { required: true, content: { "application/json": { schema: songInput(["title", "artist", "durationSeconds"]) } } },
         responses: {
-          200: { description: "Güncellendi", content: { "application/json": { schema: { $ref: "#/components/schemas/Song" } } } },
-          400: errorRes("Doğrulama hatası"),
-          404: errorRes("Şarkı bulunamadı"),
+          200: { description: "Updated", content: { "application/json": { schema: { $ref: "#/components/schemas/Song" } } } },
+          400: errorRes("Validation error"),
+          404: errorRes("Song not found"),
         },
       },
       patch: {
         tags: ["Songs"],
-        summary: "Şarkıyı kısmen güncelle (sadece gönderilen alanlar değişir)",
+        summary: "Partially update a song (only the sent fields change)",
         parameters: [idParam],
         requestBody: { required: true, content: { "application/json": { schema: songInput([]) } } },
         responses: {
-          200: { description: "Güncellendi", content: { "application/json": { schema: { $ref: "#/components/schemas/Song" } } } },
-          400: errorRes("Doğrulama hatası"),
-          404: errorRes("Şarkı bulunamadı"),
+          200: { description: "Updated", content: { "application/json": { schema: { $ref: "#/components/schemas/Song" } } } },
+          400: errorRes("Validation error"),
+          404: errorRes("Song not found"),
         },
       },
       delete: {
         tags: ["Songs"],
-        summary: "Şarkıyı playlist'ten sil",
+        summary: "Remove a song from the playlist",
         parameters: [idParam],
         responses: {
-          200: { description: "Silindi", content: { "application/json": { schema: { type: "object", properties: { message: { type: "string" }, deleted: { $ref: "#/components/schemas/Song" } } } } } },
-          404: errorRes("Şarkı bulunamadı"),
+          200: { description: "Deleted", content: { "application/json": { schema: { type: "object", properties: { message: { type: "string" }, deleted: { $ref: "#/components/schemas/Song" } } } } } },
+          404: errorRes("Song not found"),
         },
       },
     },
     "/songs/{id}/favorite": {
       patch: {
         tags: ["Songs"],
-        summary: "Favori durumunu değiştir (toggle) veya body ile belirle",
-        description: "Body göndermezseniz mevcut değerin tersi atanır. {\"favorite\": true} gönderirseniz o değer atanır.",
+        summary: "Toggle favorite status, or set it explicitly",
+        description: "If no body is sent, the current value is flipped. If {\"favorite\": true} is sent, that value is set.",
         parameters: [idParam],
         requestBody: { required: false, content: { "application/json": { schema: { type: "object", properties: { favorite: { type: "boolean" } } } } } },
         responses: {
-          200: { description: "Güncellendi", content: { "application/json": { schema: { $ref: "#/components/schemas/Song" } } } },
-          400: errorRes("favorite boolean olmalı"),
-          404: errorRes("Şarkı bulunamadı"),
+          200: { description: "Updated", content: { "application/json": { schema: { $ref: "#/components/schemas/Song" } } } },
+          400: errorRes("favorite must be a boolean"),
+          404: errorRes("Song not found"),
         },
       },
     },
     "/songs/{id}/move": {
       patch: {
         tags: ["Songs"],
-        summary: "Şarkıyı playlist içinde başka bir sıraya taşı (drag & drop)",
+        summary: "Move a song to another position in the playlist (drag & drop)",
         parameters: [idParam],
         requestBody: {
           required: true,
           content: { "application/json": { schema: { type: "object", required: ["position"], properties: { position: { type: "integer", minimum: 1, example: 3 } } } } },
         },
         responses: {
-          200: { description: "Taşındı; güncel sıralı liste döner", content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Song" } } } } },
-          400: errorRes("Geçersiz pozisyon"),
-          404: errorRes("Şarkı bulunamadı"),
+          200: { description: "Moved; returns the updated ordered list", content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Song" } } } } },
+          400: errorRes("Invalid position"),
+          404: errorRes("Song not found"),
         },
       },
     },
     "/playlist/summary": {
       get: {
         tags: ["Playlist"],
-        summary: "Şarkı sayısı ve toplam süre (\"5 songs • 17 min 26 sec\")",
+        summary: "Song count and total duration (\"5 songs • 17 min 26 sec\")",
         responses: {
           200: {
-            description: "Özet",
+            description: "Summary",
             content: {
               "application/json": {
                 schema: {
@@ -199,16 +199,16 @@ module.exports = {
     "/genres": {
       get: {
         tags: ["Playlist"],
-        summary: "Playlist'teki türler ve şarkı sayıları (\"All Genres\" filtresi için)",
+        summary: "Genres in the playlist with song counts (for the \"All Genres\" filter)",
         responses: {
-          200: { description: "Türler", content: { "application/json": { schema: { type: "array", items: { type: "object", properties: { genre: { type: "string", example: "Pop" }, count: { type: "integer", example: 4 } } } } } } },
+          200: { description: "Genres", content: { "application/json": { schema: { type: "array", items: { type: "object", properties: { genre: { type: "string", example: "Pop" }, count: { type: "integer", example: 4 } } } } } } },
         },
       },
     },
     "/health": {
       get: {
         tags: ["System"],
-        summary: "Servis ayakta mı?",
+        summary: "Is the service up?",
         responses: { 200: { description: "OK" } },
       },
     },
