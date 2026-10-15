@@ -80,7 +80,8 @@ Beyond the mockup, I added three small features:
 - Two songs are duplicates when title and artist are the same, ignoring case and surrounding spaces. The same title by a different artist is allowed.
 
 ## Issues encountered
-- **Framework choice:** I considered FastAPI (automatic Swagger) but chose Express because the assignment's example project uses Node. Swagger had to be written manually as an OpenAPI definition.
-- **Drag & drop in a REST API:** there is no direct equivalent, so I added `PATCH /songs/{id}/move` with the target position.
-- **Keeping order consistent:** storing a `position` field broke after deletes, so it is now derived from the array index.
-- **In-memory data on Render:** the free instance restarts and sleeps, which resets the data to the seed songs.
+- **Choosing a framework:** I was unsure between Express and FastAPI (which generates Swagger automatically). I chose Express because the assignment's example project uses Node, which meant writing the OpenAPI definition by hand.
+- **Drag & drop in a REST API:** the mockup has a drag handle, but a REST API has no dragging. I solved it with `PATCH /songs/{id}/move`, where the client sends the target position.
+- **Render free plan:** the deploy page looked like it required payment, but the free instance is selected by default and needs no card. Finding the public URL on the service page was also not obvious at first.
+- **Swagger language:** the first version of the Swagger descriptions was in Turkish, so I translated everything to English before submitting.
+- **In-memory data on Render:** the free instance sleeps when idle and restarts, so added songs disappear and the playlist returns to the 5 seed songs. This is expected for in-memory storage.
