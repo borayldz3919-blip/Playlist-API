@@ -43,6 +43,12 @@ const view = (song) => ({
 const bad = (res, details, status = 400) =>
   res.status(status).json({ error: status === 404 ? "Not found" : "Validation failed", details });
 
+const conflict = (res, details) => res.status(409).json({ error: "Conflict", details });
+const norm = (v) => String(v || "").trim().toLowerCase();
+const isDuplicate = (title, artist, except) =>
+  songs.some((s) => s !== except && norm(s.title) === norm(title) && norm(s.artist) === norm(artist));
+const dupMsg = (title, artist) => [`"${String(title).trim()}" by ${String(artist).trim()} is already in the playlist`];
+
 const isStr = (v) => typeof v === "string" && v.trim().length > 0;
 
 function validate(body, { partial }) {
@@ -74,6 +80,8 @@ app.get("/health", (req, res) => res.json({ status: "ok", time: now() }));
 
 app.get("/songs", (req, res) => {
   const { search, genre, favorite, sortBy = "position", order = "asc" } = req.query;
+  const minD = req.query.minDuration === undefined ? undefined : Number(req.query.minDuration);
+  const maxD = req.query.maxDuration === undefined ? undefined : Number(req.query.maxDuration);
   const page = req.query.page === undefined ? 1 : Number(req.query.page);
   const limit = req.query.limit === undefined ? 20 : Number(req.query.limit);
 
@@ -83,6 +91,9 @@ app.get("/songs", (req, res) => {
   if (!Number.isInteger(page) || page < 1) errors.push("page must be an integer >= 1");
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) errors.push("limit must be an integer between 1 and 100");
   if (favorite !== undefined && !["true", "false"].includes(favorite)) errors.push("favorite must be 'true' or 'false'");
+  if (minD !== undefined && (!Number.isInteger(minD) || minD < 0)) errors.push("minDuration must be a non-negative integer (seconds)");
+  if (maxD !== undefined && (!Number.isInteger(maxD) || maxD < 0)) errors.push("maxDuration must be a non-negative integer (seconds)");
+  if (!errors.length && minD !== undefined && maxD !== undefined && minD > maxD) errors.push("minDuration cannot be greater than maxDuration");
   if (errors.length) return bad(res, errors);
 
   let list = songs.map(view); // position is derived from the array index
@@ -93,6 +104,8 @@ app.get("/songs", (req, res) => {
   }
   if (genre) list = list.filter((s) => (s.genre || "").toLowerCase() === String(genre).toLowerCase());
   if (favorite !== undefined) list = list.filter((s) => s.favorite === (favorite === "true"));
+  if (minD !== undefined) list = list.filter((s) => s.durationSeconds >= minD);
+  if (maxD !== undefined) list = list.filter((s) => s.durationSeconds <= maxD);
 
   const dir = order === "desc" ? -1 : 1;
   list.sort((a, b) => {
@@ -115,6 +128,7 @@ app.post("/songs", (req, res) => {
   const errors = validate(req.body || {}, { partial: false });
   if (errors.length) return bad(res, errors);
   const b = req.body;
+  if (isDuplicate(b.title, b.artist)) return conflict(res, dupMsg(b.title, b.artist));
   const song = makeSong(clean(b.title), clean(b.artist), clean(b.album) || "", b.durationSeconds, clean(b.genre) || "Unknown", b.favorite === true);
   songs.push(song);
   res.status(201).json(view(song));
@@ -126,6 +140,7 @@ app.put("/songs/:id", (req, res) => {
   const errors = validate(req.body || {}, { partial: false });
   if (errors.length) return bad(res, errors);
   const b = req.body;
+  if (isDuplicate(b.title, b.artist, song)) return conflict(res, dupMsg(b.title, b.artist));
   Object.assign(song, {
     title: clean(b.title), artist: clean(b.artist), album: clean(b.album) || "",
     durationSeconds: b.durationSeconds, genre: clean(b.genre) || "Unknown",
@@ -140,6 +155,9 @@ app.patch("/songs/:id", (req, res) => {
   const body = req.body || {};
   const errors = validate(body, { partial: true });
   if (errors.length) return bad(res, errors);
+  const newTitle = body.title !== undefined ? body.title : song.title;
+  const newArtist = body.artist !== undefined ? body.artist : song.artist;
+  if (isDuplicate(newTitle, newArtist, song)) return conflict(res, dupMsg(newTitle, newArtist));
   for (const k of ["title", "artist", "album", "durationSeconds", "genre", "favorite"])
     if (body[k] !== undefined) song[k] = clean(body[k]);
   song.updatedAt = now();
@@ -183,6 +201,38 @@ app.get("/playlist/summary", (req, res) => {
     totalDurationSeconds: total,
     totalDuration: fmtTotal(total),
     favoriteCount: songs.filter((s) => s.favorite).length,
+  });
+});
+
+app.get("/playlist/stats", (req, res) => {
+  if (songs.length === 0)
+    return res.json({ songCount: 0, totalDurationSeconds: 0, averageDurationSeconds: 0, averageDuration: "0:00",
+      longestSong: null, shortestSong: null, topArtist: null, genreDistribution: [] });
+
+  const total = songs.reduce((sum, s) => sum + s.durationSeconds, 0);
+  const avg = Math.round(total / songs.length);
+  const longest = songs.reduce((m, s) => (s.durationSeconds > m.durationSeconds ? s : m));
+  const shortest = songs.reduce((m, s) => (s.durationSeconds < m.durationSeconds ? s : m));
+
+  const artists = {};
+  songs.forEach((s) => (artists[s.artist] = (artists[s.artist] || 0) + 1));
+  const [topName, topCount] = Object.entries(artists).sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]))[0];
+
+  const genres = {};
+  songs.forEach((s) => (genres[s.genre] = (genres[s.genre] || 0) + 1));
+  const genreDistribution = Object.entries(genres)
+    .map(([genre, count]) => ({ genre, count, percentage: Math.round((count / songs.length) * 1000) / 10 }))
+    .sort((x, y) => y.count - x.count || x.genre.localeCompare(y.genre));
+
+  res.json({
+    songCount: songs.length,
+    totalDurationSeconds: total,
+    averageDurationSeconds: avg,
+    averageDuration: fmtDuration(avg),
+    longestSong: view(longest),
+    shortestSong: view(shortest),
+    topArtist: { artist: topName, songCount: topCount },
+    genreDistribution,
   });
 });
 
