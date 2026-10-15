@@ -15,7 +15,7 @@ const makeSong = (title, artist, album, durationSeconds, genre, favorite) => ({
   createdAt: now(), updatedAt: now(),
 });
 
-// Dizideki sıra = playlist sırası
+// Array order = playlist order
 let songs = [
   makeSong("Blinding Lights", "The Weeknd", "After Hours", 212, "Pop", true),
   makeSong("Levitating", "Dua Lipa", "Future Nostalgia", 220, "Pop", false),
@@ -85,7 +85,7 @@ app.get("/songs", (req, res) => {
   if (favorite !== undefined && !["true", "false"].includes(favorite)) errors.push("favorite must be 'true' or 'false'");
   if (errors.length) return bad(res, errors);
 
-  let list = songs.map(view); // position, ham playlist sırasına göre hesaplanır
+  let list = songs.map(view); // position is derived from the array index
 
   if (search) {
     const q = String(search).toLowerCase();
